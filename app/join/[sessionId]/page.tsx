@@ -89,6 +89,7 @@ export default function JoinPage() {
   const [curated, setCurated] = useState<Set<string>>(new Set());
   const [contentType, setContentType] = useState<ContentType>('both');
   const [vibe, setVibe] = useState('');
+  const [recentlyWatched, setRecentlyWatched] = useState('');
 
   useEffect(() => {
     fetch(`/api/sessions/${sessionId}`)
@@ -139,7 +140,15 @@ export default function JoinPage() {
       const res = await fetch(`/api/sessions/${sessionId}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, mood, likedGenres, hatedGenres, contentType, vibe }),
+        body: JSON.stringify({
+          name,
+          mood,
+          likedGenres,
+          hatedGenres,
+          contentType,
+          vibe,
+          recentlyWatched: recentlyWatched.split(',').map((s) => s.trim()).filter(Boolean),
+        }),
       });
       if (res.ok) {
         setSubmitted(true);
@@ -407,6 +416,25 @@ export default function JoinPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Recently Watched */}
+        <div className="nf-card rounded-sm p-5">
+          <label className="block text-neutral-400 font-bold mb-1 text-[11px] uppercase tracking-[0.15em]">
+            Recently Watched <span className="text-neutral-600 font-normal normal-case tracking-normal">(optional)</span>
+          </label>
+          <p className="text-neutral-600 text-xs mb-3">
+            We&apos;ll avoid these and use them to understand your taste
+          </p>
+          <input
+            type="text"
+            value={recentlyWatched}
+            onChange={(e) => setRecentlyWatched(e.target.value)}
+            placeholder="e.g. Breaking Bad, The Bear, Oppenheimer"
+            maxLength={200}
+            className="w-full bg-black/40 border border-neutral-800 rounded-sm px-4 py-3 text-white placeholder-neutral-600 outline-none focus:border-[#e50914] transition-colors text-sm"
+          />
+          <div className="text-right text-neutral-600 text-xs mt-1">Separate with commas</div>
         </div>
 
         {/* Vibe note */}

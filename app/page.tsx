@@ -55,7 +55,12 @@ export default function HomePage() {
           <>▶  Start Watch Party</>
         )}
       </button>
-      <p className="text-neutral-500 text-xs mt-3">Free · No signup · ~60 seconds</p>
+      <p className="text-neutral-500 text-xs mt-3">
+        Free · No signup · ~60 seconds ·{' '}
+        <a href="/admin" className="text-neutral-600 hover:text-neutral-400 transition-colors underline">
+          Analytics
+        </a>
+      </p>
 
       {/* How it works */}
       <div className="mt-20 w-full max-w-4xl">

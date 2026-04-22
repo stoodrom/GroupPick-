@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { Session, Pick } from '@/lib/types';
 import { getPosterUrl } from '@/lib/tmdb';
@@ -10,7 +10,7 @@ const BUFFER_MESSAGES = [
   'Picking a fun movie...',
   'Popping the popcorn...',
   'Scanning the library...',
-  'Reading everyone\'s vibe...',
+  "Reading everyone's vibe...",
   'Checking the reviews...',
   'Warming up the projector...',
   'Almost there...',
@@ -29,9 +29,9 @@ function scoreBg(score: number) {
 }
 
 function scoreLabel(score: number) {
-  if (score >= 80) return '✓ Great match';
-  if (score >= 55) return '◎ Compromise';
-  return '✖ Tough sell';
+  if (score >= 80) return 'Great match';
+  if (score >= 55) return 'Compromise';
+  return 'Tough sell';
 }
 
 function PosterImage({ posterPath, title }: { posterPath?: string | null; title: string }) {
@@ -59,16 +59,40 @@ function PosterImage({ posterPath, title }: { posterPath?: string | null; title:
   );
 }
 
-function PickCard({ pick, rank }: { pick: Pick; rank: 'top' | 'runner' }) {
+function TrailerButton({ url }: { url?: string }) {
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-[#e50914] hover:bg-[#f40612] text-white text-xs font-bold transition-colors mt-2"
+    >
+      ▶ Watch Trailer
+    </a>
+  );
+}
+
+function PickCard({
+  pick,
+  rank,
+  index,
+}: {
+  pick: Pick;
+  rank: 'top' | 'runner';
+  index?: number;
+}) {
   const isTop = rank === 'top';
+  const [showScorecard, setShowScorecard] = useState(isTop);
 
   return (
     <div
-      className={`rounded-sm border overflow-hidden ${
+      className={`rounded-sm border overflow-hidden fade-up ${
         isTop
           ? 'border-[#e50914]/60 bg-[#181818] card-glow'
           : 'border-neutral-800 bg-[#181818]'
       }`}
+      style={!isTop ? { animationDelay: `${(index ?? 0) * 0.08}s` } : undefined}
     >
       {isTop && (
         <div className="bg-[#e50914] text-white font-black text-center py-2 text-[11px] tracking-[0.25em] uppercase">
@@ -95,15 +119,12 @@ function PickCard({ pick, rank }: { pick: Pick; rank: 'top' | 'runner' }) {
                   isTop ? 'text-2xl md:text-3xl' : 'text-lg'
                 }`}
               >
+                {!isTop && (
+                  <span className="text-neutral-600 mr-2 text-sm font-bold">#{(index ?? 0) + 2}</span>
+                )}
                 {pick.title}
               </h3>
-              <span
-                className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-sm border tracking-wider uppercase ${
-                  pick.type === 'movie'
-                    ? 'bg-neutral-900 border-neutral-700 text-neutral-300'
-                    : 'bg-neutral-900 border-neutral-700 text-neutral-300'
-                }`}
-              >
+              <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-sm border tracking-wider uppercase bg-neutral-900 border-neutral-700 text-neutral-300">
                 {pick.type === 'movie' ? 'MOVIE' : 'SERIES'}
               </span>
             </div>
@@ -114,24 +135,27 @@ function PickCard({ pick, rank }: { pick: Pick; rank: 'top' | 'runner' }) {
 
             <p
               className={`text-neutral-300 text-sm leading-relaxed ${
-                isTop ? '' : 'line-clamp-3'
+                isTop ? '' : 'line-clamp-2'
               }`}
             >
               {pick.synopsis}
             </p>
 
-            <div className="mt-3 flex items-center gap-2">
-              <div className={`text-3xl font-black ${scoreColor(pick.overallScore)}`}>
-                {pick.overallScore}%
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className={`text-2xl font-black ${scoreColor(pick.overallScore)}`}>
+                  {pick.overallScore}%
+                </div>
+                <div className="text-neutral-500 text-xs uppercase tracking-wider">
+                  Match
+                </div>
               </div>
-              <div className="text-neutral-500 text-xs uppercase tracking-wider">
-                Match Score
-              </div>
+              <TrailerButton url={pick.trailerUrl} />
             </div>
           </div>
         </div>
 
-        {/* Scorecard */}
+        {/* Scorecard (top pick always shows, runners toggle) */}
         {isTop && pick.scorecard.length > 0 && (
           <div className="mt-6">
             <h4 className="text-neutral-400 font-bold text-[11px] uppercase tracking-[0.15em] mb-3">
@@ -161,17 +185,34 @@ function PickCard({ pick, rank }: { pick: Pick; rank: 'top' | 'runner' }) {
           </div>
         )}
 
-        {/* Runner-up mini scorecard */}
+        {/* Runner-up: mini scores + expandable scorecard */}
         {!isTop && pick.scorecard.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {pick.scorecard.map((entry) => (
-              <span
-                key={entry.person}
-                className={`text-xs px-2.5 py-1 rounded-sm border font-semibold ${scoreBg(entry.score)} ${scoreColor(entry.score)}`}
-              >
-                {entry.person}: {entry.score}%
-              </span>
-            ))}
+          <div className="mt-4">
+            <div className="flex flex-wrap gap-1.5">
+              {pick.scorecard.map((entry) => (
+                <span
+                  key={entry.person}
+                  className={`text-xs px-2.5 py-1 rounded-sm border font-semibold ${scoreBg(entry.score)} ${scoreColor(entry.score)}`}
+                >
+                  {entry.person}: {entry.score}%
+                </span>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowScorecard(!showScorecard)}
+              className="text-neutral-500 text-xs mt-2 hover:text-neutral-300 transition-colors"
+            >
+              {showScorecard ? '▲ Hide details' : '▼ Show details'}
+            </button>
+            {showScorecard && (
+              <div className="mt-2 space-y-1.5">
+                {pick.scorecard.map((entry) => (
+                  <div key={entry.person} className="text-xs text-neutral-400 pl-2 border-l-2 border-neutral-800">
+                    <span className="text-white font-bold">{entry.person}:</span> {entry.reason}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -181,10 +222,13 @@ function PickCard({ pick, rank }: { pick: Pick; rank: 'top' | 'runner' }) {
 
 export default function ResultsPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [resolving, setResolving] = useState(false);
   const [bufferMsgIndex, setBufferMsgIndex] = useState(0);
+  const [visibleRunnerUps, setVisibleRunnerUps] = useState(2);
+  const [rerunning, setRerunning] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -223,10 +267,29 @@ export default function ResultsPage() {
     return () => clearInterval(id);
   }, [resolving, loading]);
 
+  async function handleWatchAgain() {
+    setRerunning(true);
+    try {
+      const res = await fetch(`/api/rerun/${sessionId}`, { method: 'POST' });
+      if (res.ok) {
+        // Re-resolve with same preferences
+        setResolving(true);
+        setVisibleRunnerUps(2);
+        const rRes = await fetch(`/api/resolve/${sessionId}`, { method: 'POST' });
+        if (rRes.ok) {
+          const updated = await fetch(`/api/sessions/${sessionId}`);
+          if (updated.ok) setSession(await updated.json());
+        }
+        setResolving(false);
+      }
+    } finally {
+      setRerunning(false);
+    }
+  }
+
   if (loading || resolving) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-65px)] gap-6 px-4 fade-up">
-        {/* Film reel spinner */}
         <div className="relative w-24 h-24">
           <div className="absolute inset-0 rounded-full border-4 border-neutral-800" />
           <div
@@ -235,7 +298,6 @@ export default function ResultsPage() {
           />
           <div className="absolute inset-0 flex items-center justify-center text-4xl">🎬</div>
         </div>
-
         <div className="text-center">
           <h2 className="text-2xl md:text-3xl font-black text-white mb-2 min-h-[2.5rem]">
             {BUFFER_MESSAGES[bufferMsgIndex]}
@@ -244,7 +306,6 @@ export default function ResultsPage() {
             Comparing everyone&apos;s vibe to find the perfect pick
           </p>
         </div>
-
         <div className="flex gap-1.5">
           {[0, 1, 2].map((i) => (
             <div
@@ -277,6 +338,8 @@ export default function ResultsPage() {
   }
 
   const { topPick, runnerUps } = session.result;
+  const totalRunnerUps = runnerUps?.length ?? 0;
+  const hasMore = visibleRunnerUps < totalRunnerUps;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 fade-up">
@@ -286,11 +349,11 @@ export default function ResultsPage() {
           🎬 The Verdict
         </div>
         <h1 className="text-4xl md:text-5xl font-black text-white leading-tight">
-          Tonight&apos;s <span className="gradient-text">Pick</span>
+          Tonight&apos;s <span className="gradient-text">Lineup</span>
         </h1>
         <p className="text-neutral-400 mt-3 text-sm">
           Analyzed {session.submissions.length}{' '}
-          {session.submissions.length === 1 ? 'preference' : 'preferences'} to find your perfect match
+          {session.submissions.length === 1 ? 'preference' : 'preferences'} · {totalRunnerUps + 1} picks ranked for your group
         </p>
       </div>
 
@@ -299,8 +362,8 @@ export default function ResultsPage() {
         <PickCard pick={topPick} rank="top" />
       </div>
 
-      {/* Runner-ups */}
-      {runnerUps?.length > 0 && (
+      {/* Runner-ups — "Tonight's Lineup" */}
+      {totalRunnerUps > 0 && (
         <div className="mb-8">
           <div className="text-center mb-4">
             <h2 className="text-neutral-400 font-bold text-[11px] uppercase tracking-[0.25em]">
@@ -309,10 +372,20 @@ export default function ResultsPage() {
             <div className="divider-line w-16 mx-auto mt-2" />
           </div>
           <div className="space-y-4">
-            {runnerUps.map((pick, i) => (
-              <PickCard key={i} pick={pick} rank="runner" />
+            {runnerUps.slice(0, visibleRunnerUps).map((pick, i) => (
+              <PickCard key={i} pick={pick} rank="runner" index={i} />
             ))}
           </div>
+
+          {/* "Next Best" button */}
+          {hasMore && (
+            <button
+              onClick={() => setVisibleRunnerUps((v) => Math.min(v + 3, totalRunnerUps))}
+              className="w-full mt-4 py-3 rounded-sm border border-dashed border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500 transition-colors text-sm font-semibold"
+            >
+              ▼ Show Next Best ({totalRunnerUps - visibleRunnerUps} more)
+            </button>
+          )}
         </div>
       )}
 
@@ -322,15 +395,22 @@ export default function ResultsPage() {
           href="/"
           className="flex-1 btn-ghost font-bold py-3 rounded-sm text-center"
         >
-          🔄 Start Over
+          🏠 New Session
         </a>
+        <button
+          onClick={handleWatchAgain}
+          disabled={rerunning}
+          className="flex-1 btn-ghost font-bold py-3 rounded-sm"
+        >
+          {rerunning ? '🔄 Re-picking...' : '🔄 Watch Again (New Picks)'}
+        </button>
         <button
           onClick={() =>
             navigator.share?.({ title: 'GroupPick Result', url: window.location.href }).catch(() => {})
           }
           className="flex-1 btn-primary text-white font-bold py-3 rounded-sm"
         >
-          📤 Share Results
+          📤 Share
         </button>
       </div>
 

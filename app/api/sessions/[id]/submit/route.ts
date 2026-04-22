@@ -15,7 +15,7 @@ export async function POST(
   }
 
   const body = await req.json();
-  const { name, mood, likedGenres, hatedGenres, contentType, vibe } = body;
+  const { name, mood, likedGenres, hatedGenres, contentType, vibe, recentlyWatched } = body;
 
   if (!name?.trim() || !mood || !contentType) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -28,6 +28,7 @@ export async function POST(
     hatedGenres: hatedGenres ?? [],
     contentType,
     vibe: vibe ?? '',
+    recentlyWatched: recentlyWatched ?? [],
     submittedAt: Date.now(),
   };
 

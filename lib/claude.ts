@@ -11,6 +11,7 @@ export async function resolveGroupPick(submissions: Submission[]): Promise<Omit<
     hatedGenres: s.hatedGenres,
     contentType: s.contentType,
     vibe: s.vibe || 'no specific vibe noted',
+    recentlyWatched: s.recentlyWatched?.length ? s.recentlyWatched : undefined,
   }));
 
   const prompt = `You are GroupPick, an expert at finding the perfect movie or TV show for a group of people with different tastes.
@@ -38,12 +39,15 @@ Some entries in a person's "likedGenres" may be curated collection labels instea
 - "Family-Friendly" → safe for all ages, no heavy content.
 - "Classics" → iconic older titles that stand the test of time.
 - "Foreign Films" → non-English-language cinema.
-If multiple people share a curated label, lean heavily into that collection. Literal genre names (Action, Comedy, etc.) should still be respected as genre preferences.
+If multiple people share a curated label, lean heavily into that collection.
+
+RECENTLY WATCHED:
+If a person lists "recentlyWatched" titles, NEVER recommend those exact titles. Use them to understand that person's taste — recommend similar quality/style but different titles.
 
 Your task:
-1. Analyze everyone's preferences, moods, liked genres (including curated collection hints), hated genres, content type preferences, and vibe notes.
+1. Analyze everyone's preferences, moods, liked genres (including curated collection hints), hated genres, content type preferences, vibe notes, and recently watched titles.
 2. Find the BEST single movie or TV show that satisfies the most people while avoiding dealbreakers (hated genres).
-3. Also pick 2 runner-up options.
+3. Also pick 7 more runner-up options, ranked by group compatibility (next best to least best). Total: 1 top pick + 7 runner-ups = 8 recommendations.
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no explanation, just JSON):
 {
@@ -69,33 +73,26 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
       "scorecard": [
         { "person": "name", "score": number (0-100), "reason": "1 sentence" }
       ]
-    },
-    {
-      "title": "string",
-      "type": "movie" | "show",
-      "genre": "Primary Genre",
-      "year": number,
-      "synopsis": "2-3 sentence synopsis",
-      "overallScore": number (0-100),
-      "scorecard": [
-        { "person": "name", "score": number (0-100), "reason": "1 sentence" }
-      ]
     }
   ]
 }
 
+The "runnerUps" array must contain exactly 7 entries, ranked from best to worst match.
+
 Rules:
 - Only recommend real, well-known titles that actually exist.
+- NEVER recommend a title that anyone listed in "recentlyWatched".
 - Avoid any title whose primary genre someone explicitly hated (this is a hard rule).
 - The scorecard MUST have exactly one entry per group member, using their exact names.
 - overallScore should reflect how well the pick satisfies the whole group, weighted toward compromise.
 - If most people are "tired", prefer shorter / easier watches. If most people are "binge", prefer TV series. If most people are "snacking", prefer visually-driven English-language titles.
 - Respect curated collection hints (Oscar Winners, Hidden Gems, etc.) as strong filters.
-- Pick titles that are highly rated and widely available on mainstream streaming.`;
+- Pick titles that are highly rated and widely available on mainstream streaming.
+- All 8 picks should be distinct — no duplicates.`;
 
   const completion = await client.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
-    max_tokens: 2000,
+    max_tokens: 4000,
     temperature: 0.7,
     response_format: { type: 'json_object' },
     messages: [

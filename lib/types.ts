@@ -46,6 +46,7 @@ export interface Submission {
   hatedGenres: string[];
   contentType: ContentType;
   vibe: string;
+  recentlyWatched: string[];
   submittedAt: number;
 }
 
@@ -65,12 +66,23 @@ export interface Pick {
   overallScore: number;
   tmdbId?: number;
   posterPath?: string;
+  trailerUrl?: string;
 }
 
 export interface ResolveResult {
   topPick: Pick;
-  runnerUps: [Pick, Pick];
+  runnerUps: Pick[];
   resolvedAt: number;
+}
+
+export interface Analytics {
+  totalSessions: number;
+  totalResolutions: number;
+  avgGroupSize: number;
+  topMoods: Record<string, number>;
+  topGenres: Record<string, number>;
+  resolutionRate: number;
+  avgTimeToResolveMs: number;
 }
 
 export interface Session {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSession, saveResult } from '@/lib/kv';
+import { getSession, saveResult, recordResolution } from '@/lib/kv';
 import { resolveGroupPick } from '@/lib/claude';
 import { searchTMDB } from '@/lib/tmdb';
 import type { Pick, ResolveResult } from '@/lib/types';
@@ -7,7 +7,12 @@ import type { Pick, ResolveResult } from '@/lib/types';
 async function enrichWithPoster(pick: Pick): Promise<Pick> {
   const tmdb = await searchTMDB(pick.title, pick.type, pick.year);
   if (tmdb) {
-    return { ...pick, tmdbId: tmdb.tmdbId, posterPath: tmdb.posterPath ?? undefined };
+    return {
+      ...pick,
+      tmdbId: tmdb.tmdbId,
+      posterPath: tmdb.posterPath ?? undefined,
+      trailerUrl: tmdb.trailerUrl ?? undefined,
+    };
   }
   return pick;
 }
@@ -37,21 +42,21 @@ export async function POST(
 
     const result = await resolveGroupPick(session.submissions);
 
-    // Enrich all picks with TMDB poster data in parallel
-    const [topPick, runner0, runner1] = await Promise.all([
-      enrichWithPoster(result.topPick),
-      enrichWithPoster(result.runnerUps[0]),
-      enrichWithPoster(result.runnerUps[1]),
-    ]);
+    // Enrich all picks with TMDB poster + trailer data in parallel
+    const allPicks = [result.topPick, ...result.runnerUps];
+    const enrichedPicks = await Promise.all(allPicks.map(enrichWithPoster));
 
     const enriched: ResolveResult = {
-      ...result,
-      topPick,
-      runnerUps: [runner0, runner1] as [Pick, Pick],
+      topPick: enrichedPicks[0],
+      runnerUps: enrichedPicks.slice(1),
       resolvedAt: Date.now(),
     };
 
     await saveResult(params.sessionId, enriched);
+
+    // Track analytics
+    recordResolution(session);
+
     return NextResponse.json(enriched);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
